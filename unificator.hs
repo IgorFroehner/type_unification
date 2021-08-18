@@ -35,7 +35,7 @@ parseInt = do
 
 parseVar :: Parser Type -- var: lowercase+
 parseVar = do
-    name <- many lower
+    name <- many1 lower
     return (TypeVar name)
 
 parseFun :: Parser Type -- fun: atom "->" type
@@ -46,13 +46,13 @@ parseFun = do
 
 parseParen :: Parser Type -- paren: "(" type ")"
 parseParen = do
-    -- whitespace
+    whitespace
     char '('
-    -- whitespace
-    asdf <- parseInt
-    -- whitespace
+    whitespace
+    asdf <- parseType
+    whitespace
     char ')'
-    -- whitespace
+    whitespace
     return asdf
 
 parseType :: Parser Type -- type: function | atom
