@@ -4,7 +4,7 @@ import Text.ParserCombinators.Parsec
 data Type = TypeInt
     | TypeVar Name
     | TypeArrow Type Type
-    -- deriving Show
+    deriving Show
 
 type Name = String
 
@@ -76,10 +76,43 @@ main = do
         Right s -> print s
         Left _ -> putStrLn "Deu ruim"
 
-instance Show Type where
-    show TypeInt =
-        "Int"
-    show (TypeVar x) =
-        x
-    show (TypeArrow x y) =
-        "(" ++ show x ++ " -> " ++ show y ++ ")"
+-- instance Show Type where
+--     show TypeInt =
+--         "Int"
+--     show (TypeVar x) =
+--         x
+--     show (TypeArrow x y) =
+--         "(" ++ show x ++ " -> " ++ show y ++ ")"
+
+occursCheck :: Name -> Type -> Bool
+occursCheck n TypeInt = False
+occursCheck n (TypeVar m) = n == m
+occursCheck n (TypeArrow t1 t2) = 
+    occursCheck n t1 || occursCheck n t2 
+
+subst :: Unifier -> Type -> Type
+subst u TypeInt = TypeInt
+subst u (TypeVar n) = 
+    case lookup n u of
+        Just e -> e
+        Nothing -> TypeVar n
+subst u (TypeArrow t1 t2) = TypeArrow (subst u t1) (subst u t2)
+
+unify :: Type -> Type -> Maybe Unifier
+unify TypeInt TypeInt = Just []
+unify (TypeVar a) (TypeVar b) | a == b = Just []
+unify t (TypeVar n) = if occursCheck n t then Just [(n, t)] else Nothing
+unify (TypeVar n) t = if occursCheck n t then Just [(n, t)] else Nothing
+unify (TypeArrow a b) (TypeArrow x y) = do
+    s1 <- unify a x
+    s2 <- unify (subst s1 b) (subst s1 y)
+    return (compose s2 s1)
+
+substList :: Unifier -> Unifier -
+
+compose :: Unifier -> Unifier -> Unifier
+compose [] [] = []
+compose [] xs = xs
+compose ys [] = ys
+compose xs ys = xs ++ substList xs ys
+
