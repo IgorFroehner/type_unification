@@ -2,13 +2,21 @@ import Data.List
 import Text.ParserCombinators.Parsec
 
 data Type = TypeInt
-    | TypeVar Name
-    | TypeArrow Type Type
-    deriving Show
+        | TypeVar Name
+        | TypeArrow Type Type
+        -- deriving Show
 
 type Name = String
 
 type Unifier = [(Name, Type)]
+
+showUnifier [] =
+  "{}"
+showUnifier xs =
+  "{ " ++ intercalate ", " (map showPair xs) ++ " }"
+  where
+    showPair (x, e) =
+      x ++ " |-> " ++ show e
 
 whitespace :: Parser ()
 whitespace = do
@@ -68,31 +76,37 @@ unit = do
 main :: IO()
 main = do
     putStrLn "Digite os tipos:"
-    str <- getLine
+    str_a <- getLine
+    str_b <- getLine
 
-    let res = parse unit "<stdin>" str
+    let a = parse unit "<stdin>" str_a
+    let b = parse unit "<stdin>" str_b
 
-    case res of
-        Right s -> print s
-        Left _ -> putStrLn "Deu ruim"
+    case a of
+        Left a -> putStrLn "Tipo A invalido"
+        Right a -> case b of
+            Left b -> putStrLn "Tipo B invalido"
+            Right b -> case unify a b of
+                Just xs -> putStrLn $ showUnifier xs
+                Nothing -> putStrLn "Impossivel unificar"
 
--- instance Show Type where
---     show TypeInt =
---         "Int"
---     show (TypeVar x) =
---         x
---     show (TypeArrow x y) =
---         "(" ++ show x ++ " -> " ++ show y ++ ")"
+instance Show Type where
+    show TypeInt =
+        "Int"
+    show (TypeVar x) =
+        x
+    show (TypeArrow x y) =
+        "(" ++ show x ++ " -> " ++ show y ++ ")"
 
 occursCheck :: Name -> Type -> Bool
 occursCheck n TypeInt = False
 occursCheck n (TypeVar m) = n == m
-occursCheck n (TypeArrow t1 t2) = 
-    occursCheck n t1 || occursCheck n t2 
+occursCheck n (TypeArrow t1 t2) =
+    occursCheck n t1 || occursCheck n t2
 
 subst :: Unifier -> Type -> Type
 subst u TypeInt = TypeInt
-subst u (TypeVar n) = 
+subst u (TypeVar n) =
     case lookup n u of
         Just e -> e
         Nothing -> TypeVar n
@@ -100,19 +114,19 @@ subst u (TypeArrow t1 t2) = TypeArrow (subst u t1) (subst u t2)
 
 unify :: Type -> Type -> Maybe Unifier
 unify TypeInt TypeInt = Just []
+unify (TypeArrow a b) TypeInt = Nothing
+unify TypeInt (TypeArrow a b) = Nothing
 unify (TypeVar a) (TypeVar b) | a == b = Just []
-unify t (TypeVar n) = if occursCheck n t then Just [(n, t)] else Nothing
-unify (TypeVar n) t = if occursCheck n t then Just [(n, t)] else Nothing
-unify (TypeArrow a b) (TypeArrow x y) = do
+unify (TypeVar n) t = if occursCheck n t then Nothing else Just [(n, t)] --left
+unify t (TypeVar n) = if occursCheck n t then Nothing else Just [(n, t)] --right
+unify (TypeArrow a b) (TypeArrow x y) = do --arrow
     s1 <- unify a x
     s2 <- unify (subst s1 b) (subst s1 y)
     return (compose s2 s1)
 
-substList :: Unifier -> Unifier -
+substList :: Unifier -> Unifier -> Unifier
+substList s = map (\ (n, x) -> (n, subst s x))
 
 compose :: Unifier -> Unifier -> Unifier
-compose [] [] = []
-compose [] xs = xs
-compose ys [] = ys
 compose xs ys = xs ++ substList xs ys
 
